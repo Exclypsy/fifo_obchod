@@ -1,411 +1,303 @@
-"""
-FIFO Queue Simulator - Nákupná simulácia v obchode
-Autor: Simulátor obchodu
-Dátum: 2026
-"""
-
-import random
-import math
 from collections import deque
 from dataclasses import dataclass
 from typing import List
+import random
 import time as time_module
 
 
-# ===========================================================================
-# FIFO TRIEDA
-# ===========================================================================
-
-class FIFONode:
-    """Uzol v FIFO rade"""
-
+class Uzol:
     def __init__(self, data):
         self.data = data
 
     def __repr__(self):
-        return f"Node({self.data})"
+        return f"Uzol({self.data})"
 
 
 class FIFO:
-    """FIFO rad s head, tail, buffer"""
+    def __init__(self, velkost: int):
+        self.buffer = deque(maxlen=velkost)
+        self.hlava = None
+        self.chvost = None
+        self.max_velkost = velkost
 
-    def __init__(self, size: int):
-        """
-        Inicializácia FIFO radu
-
-        Args:
-            size: Maximálna veľkosť buffra
-        """
-        self.buffer = deque(maxlen=size)
-        self.head = None
-        self.tail = None
-        self.max_size = size
-
-    def put(self, item):
-        """
-        Pridaj prvok do radu
-
-        Args:
-            item: Prvok na pridanie
-
-        Returns:
-            bool: True ak bolo pridané, False ak je rad plný
-        """
-        if len(self.buffer) >= self.max_size:
+    def vloz(self, prvok):
+        if len(self.buffer) >= self.max_velkost:
             return False
-
-        node = FIFONode(item)
-        self.buffer.append(node)
-
-        if self.tail is None:
-            self.head = node
-            self.tail = node
+        uzol = Uzol(prvok)
+        self.buffer.append(uzol)
+        if self.chvost is None:
+            self.hlava = uzol
+            self.chvost = uzol
         else:
-            self.tail = node
-
+            self.chvost = uzol
         return True
 
-    def get(self):
-        """
-        Vyberi prvok z radu
-
-        Returns:
-            any: Prvok z radu alebo None ak je prázdny
-        """
+    def vyber(self):
         if len(self.buffer) == 0:
             return None
-
-        node = self.buffer.popleft()
-        self.head = self.buffer[0] if len(self.buffer) > 0 else None
-
+        uzol = self.buffer.popleft()
+        self.hlava = self.buffer[0] if len(self.buffer) > 0 else None
         if len(self.buffer) == 0:
-            self.tail = None
+            self.chvost = None
+        return uzol.data
 
-        return node.data
-
-    def length(self) -> int:
-        """Vráti dĺžku radu"""
+    def dlzka(self) -> int:
         return len(self.buffer)
 
-    def is_empty(self) -> bool:
-        """Vráti True ak je rad prázdny"""
+    def je_prazdny(self) -> bool:
         return len(self.buffer) == 0
 
-    def peek(self):
-        """Pozri sa na prvý prvok bez jeho vybrania"""
+    def pozri(self):
         if len(self.buffer) == 0:
             return None
         return self.buffer[0].data
 
     def __repr__(self):
-        return f"FIFO(length={self.length()}, max_size={self.max_size})"
+        return f"FIFO(dlzka={self.dlzka()}, max_velkost={self.max_velkost})"
 
-
-# ============================================================================
-# KUPUJÚCI TRIEDA
-# ============================================================================
 
 @dataclass
-class Customer:
-    """Údaje o kupujúcom"""
-    id: int  # Poradové číslo
-    arrival_time: float  # Čas príchodu do obchodu (sekundy)
-    shopping_duration: float  # Trvanie nákupovania (minúty)
-    checkout_duration: float  # Trvanie spracovania pri pokladni (minúty)
-    finish_shopping_time: float  # Čas na konci nákupovania
-    queue_start_time: float = None  # Čas vstupu do radu
-    checkout_finish_time: float = None  # Čas konca spracovania pri pokladni
+class Zakaznik:
+    id: int
+    cas_prichodu: float
+    trvanie_nakupovania: float
+    trvanie_spracovania: float
+    koniec_nakupovania: float
+    cas_zaciatku_radu: float = None
+    koniec_spracovania: float = None
 
     def __repr__(self):
-        return f"Customer(id={self.id}, arrival={self.arrival_time:.1f}s)"
+        return f"Zakaznik(id={self.id}, prichod={self.cas_prichodu:.1f}s)"
 
 
-# ============================================================================
-# SIMULÁTOR
-# ============================================================================
+class SimulaciaObchodu:
+    def __init__(self, cislo_studenta: int = 15, otvaracie_hodiny: float = 8.0):
+        self.cislo_studenta = cislo_studenta
+        self.otvaracie_hodiny = otvaracie_hodiny
+        self.celkovy_cas = otvaracie_hodiny * 3600
+        self.sucasny_cas = 0.0
+        self.mierka = 100
 
-class ShopSimulator:
-    """Simulátor pohybu ľudí v obchode"""
+        self.rad_pokladna = FIFO(velkost=1000)
+        self.zakaznici: List[Zakaznik] = []
+        self.zakaznici_v_obchode: List[Zakaznik] = []
 
-    def __init__(self, student_number: int = 15, operating_hours: float = 8.0):
-        """
-        Inicializácia simulátora
+        self.celkova_neinnost = 0.0
+        self.pokladna_zaneprazdna_do = 0.0
+        self.max_cakanie = 0.0
+        self.max_dlzka_radu = 0
+        self.zakaznici_obsluzeni = 0
 
-        Args:
-            student_number: Poradové číslo v triednej knihe
-            operating_hours: Počet hodín prevádzky (3600 * hours sekúnd)
-        """
-        self.student_number = student_number
-        self.operating_hours = operating_hours
-        self.total_simulation_time = operating_hours * 3600  # v sekundách
-        self.current_time = 0.0
-        self.time_scale = 100  # Simulácia je zrýchľovaná 100x
+        self.logy = []
 
-        # FIFO rad pri pokladni
-        self.checkout_queue = FIFO(size=1000)
+    def pridaj_log(self, sprava: str):
+        self.logy.append(sprava)
+        print(sprava)
 
-        # Evidencia všetkých kupujúcich
-        self.all_customers: List[Customer] = []
-        self.customers_in_shop: List[Customer] = []
-
-        # Štatistiky
-        self.total_idle_time = 0.0  # Súhrnná doba nečinnosti pokladne
-        self.checkout_busy_until = 0.0  # Čas, kedy je pokladňa obsadená
-        self.max_queue_wait = 0.0  # Maximálna doba čakania v rade
-        self.max_queue_length = 0  # Maximálna dĺžka radu
-        self.customers_served = 0  # Počet obsúžených kupujúcich
-
-        # Logovanie
-        self.log_lines = []
-
-    def add_log(self, message: str):
-        """Pridaj log správu"""
-        self.log_lines.append(message)
-        print(message)
-
-    def generate_customers(self):
-        """Generuj zoznam kupujúcich na základe zadaných pravidiel"""
-        self.all_customers = []
-        customer_id = 1
-        prev_arrival = 0.0
+    def vygeneruj_zakaznikov(self):
+        self.zakaznici = []
+        id_zakaznika = 1
+        posledny_prichod = 0.0
 
         while True:
-            # Ti = Ti-1 + 5 + random(25 + P.Č.) sekúnd
-            arrival_interval = 5 + random.randint(0, 25 + self.student_number)
-            arrival_time = prev_arrival + arrival_interval
+            interval_prichodu = 5 + random.randint(0, 25 + self.cislo_studenta)
+            cas_prichodu = posledny_prichod + interval_prichodu
 
-            # Skontroluj, či je čas príchodu v rámci otváracej doby
-            if arrival_time > self.total_simulation_time:
+            if cas_prichodu > self.celkovy_cas:
                 break
 
-            # Tn = 1 + random(10 + P.Č.) minút
-            shopping_duration = 1 + random.randint(0, 10 + self.student_number)
+            trvanie_nakupovania = 1 + random.randint(0, 10 + self.cislo_studenta)
+            trvanie_spracovania = 0.3 + trvanie_nakupovania / 20
+            koniec_nakupovania = cas_prichodu + trvanie_nakupovania * 60
 
-            # Tp = 0.3 + Tn/20 minút
-            checkout_duration = 0.3 + shopping_duration / 20
-
-            # Čas na konci nákupovania
-            finish_shopping_time = arrival_time + shopping_duration * 60  # Konverzia minút na sekundy
-
-            customer = Customer(
-                id=customer_id,
-                arrival_time=arrival_time,
-                shopping_duration=shopping_duration,
-                checkout_duration=checkout_duration,
-                finish_shopping_time=finish_shopping_time
+            zakaznik = Zakaznik(
+                id=id_zakaznika,
+                cas_prichodu=cas_prichodu,
+                trvanie_nakupovania=trvanie_nakupovania,
+                trvanie_spracovania=trvanie_spracovania,
+                koniec_nakupovania=koniec_nakupovania
             )
 
-            self.all_customers.append(customer)
-            prev_arrival = arrival_time
-            customer_id += 1
+            self.zakaznici.append(zakaznik)
+            posledny_prichod = cas_prichodu
+            id_zakaznika += 1
 
-    def get_customers_needing_checkout(self, current_time: float) -> List[Customer]:
-        """Nájdi kupujúcich, ktorí majú prejsť do radu pri pokladni"""
-        customers = []
-        for customer in self.customers_in_shop:
-            if (customer.finish_shopping_time <= current_time and
-                    customer.queue_start_time is None and
-                    customer.checkout_finish_time is None):
-                customers.append(customer)
-        return customers
+    def zoznam_zakaznikov_na_rad(self, cas: float) -> List[Zakaznik]:
+        zoznam = []
+        for zakaznik in self.zakaznici_v_obchode:
+            if (zakaznik.koniec_nakupovania <= cas and
+                    zakaznik.cas_zaciatku_radu is None and
+                    zakaznik.koniec_spracovania is None):
+                zoznam.append(zakaznik)
+        return zoznam
 
-    def is_checkout_free(self, current_time: float) -> bool:
-        """Skontroluj, či je pokladňa voľná"""
-        return self.checkout_busy_until <= current_time
+    def je_pokladna_volna(self, cas: float) -> bool:
+        return self.pokladna_zaneprazdna_do <= cas
 
-    def print_state(self, event_type: str = ""):
-        """Vytlač stav simulácie"""
-        queue_length = self.checkout_queue.length()
-        display_time = self.current_time / self.time_scale
+    def vypis_stav(self, typ_udalosti: str = ""):
+        dlzka_radu = self.rad_pokladna.dlzka()
+        cas = self.sucasny_cas / self.mierka
 
-        msg = f"\n[T={display_time:7.2f}s | {event_type:15} | Rad: {queue_length:3d} | Nečinnosť: {self.total_idle_time:8.2f}s]"
-        self.add_log(msg)
+        sprava = f"\n[T={cas:7.2f}s | {typ_udalosti:15} | Rad: {dlzka_radu:3d} | Nečinnosť: {self.celkova_neinnost:8.2f}s]"
+        self.pridaj_log(sprava)
 
-    def run(self) -> dict:
-        """Spusti simuláciu"""
-        self.log_lines = []
-        self.add_log("=" * 100)
-        self.add_log(f"SIMULÁCIA NÁKUPU V OBCHODE")
-        self.add_log(f"Poradové číslo študenta: {self.student_number}")
-        self.add_log(f"Doba prevádzky: {self.operating_hours} hodín ({self.total_simulation_time}s)")
-        self.add_log(f"Zrýchlenie: {self.time_scale}x")
-        self.add_log("=" * 100)
+    def spusti(self) -> dict:
+        self.logy = []
+        self.pridaj_log("=" * 100)
+        self.pridaj_log("SIMULÁCIA NÁKUPU V OBCHODE")
+        self.pridaj_log(f"Poradové číslo študenta: {self.cislo_studenta}")
+        self.pridaj_log(f"Doba prevádzky: {self.otvaracie_hodiny} hodín ({self.celkovy_cas}s)")
+        self.pridaj_log(f"Zrýchlenie: {self.mierka}x")
+        self.pridaj_log("=" * 100)
 
-        # Vygeneruj kupujúcich
-        self.generate_customers()
-        self.add_log(f"\nGenerovaných kupujúcich: {len(self.all_customers)}")
+        self.vygeneruj_zakaznikov()
+        self.pridaj_log(f"\nGenerovaných zakaznikov: {len(self.zakaznici)}")
 
-        # Generuj všetky časové udalosti
-        events = []  # (time, event_type, customer)
+        udalosti = []
+        for zakaznik in self.zakaznici:
+            udalosti.append((zakaznik.cas_prichodu, "prichod", zakaznik))
+            udalosti.append((zakaznik.koniec_nakupovania, "koniec_nakupovania", zakaznik))
 
-        for customer in self.all_customers:
-            events.append((customer.arrival_time, "arrival", customer))
-            events.append((customer.finish_shopping_time, "finish_shopping", customer))
+        udalosti.sort(key=lambda x: x[0])
 
-        events.sort(key=lambda x: x[0])
+        self.sucasny_cas = 0.0
+        index_udalosti = 0
+        pocet_riadkov = 0
+        max_riadkov = 50
 
-        self.current_time = 0.0
-        event_index = 0
-        screen_line_count = 0
-        max_lines_before_screenshot = 50
+        self.pridaj_log(f"\n{'=' * 100}")
+        self.pridaj_log("ZAČIATOK SIMULÁCIE")
+        self.pridaj_log(f"{'=' * 100}\n")
 
-        self.add_log(f"\n{'=' * 100}")
-        self.add_log("ZAČIATOK SIMULÁCIE")
-        self.add_log(f"{'=' * 100}\n")
+        while index_udalosti < len(udalosti) and self.sucasny_cas <= self.celkovy_cas:
+            cas_udalosti, typ_udalosti, zakaznik = udalosti[index_udalosti]
 
-        while event_index < len(events) and self.current_time <= self.total_simulation_time:
-            current_event_time, event_type, customer = events[event_index]
-
-            if current_event_time > self.total_simulation_time:
+            if cas_udalosti > self.celkovy_cas:
                 break
 
-            self.current_time = current_event_time
+            self.sucasny_cas = cas_udalosti
 
-            # ==== PRÍCHOD KUPUJÚCEHO DO OBCHODU ====
-            if event_type == "arrival":
-                self.customers_in_shop.append(customer)
-                display_time = self.current_time / self.time_scale
-                self.add_log(f"\n[T={display_time:7.2f}s] PRÍCHOD kupujúceho #{customer.id}")
-                self.add_log(
-                    f"  Čas príchodu: {display_time:.2f}s | Nákupovanie: {customer.shopping_duration}min | Pokladňa: {customer.checkout_duration:.2f}min")
-                screen_line_count += 3
+            if typ_udalosti == "prichod":
+                self.zakaznici_v_obchode.append(zakaznik)
+                cas = self.sucasny_cas / self.mierka
+                self.pridaj_log(f"\n[T={cas:7.2f}s] PRÍCHOD zakaznika #{zakaznik.id}")
+                self.pridaj_log(
+                    f"  Čas príchodu: {cas:.2f}s | Nakupovanie: {zakaznik.trvanie_nakupovania}min | Pokladňa: {zakaznik.trvanie_spracovania:.2f}min")
+                pocet_riadkov += 3
 
-            # ==== KONIEC NÁKUPOVANIA - VSTUP DO RADU ====
-            elif event_type == "finish_shopping":
-                # Kupujúci skončil s nakupovaním
-                customers_to_queue = [c for c in self.customers_in_shop
-                                      if c.finish_shopping_time <= self.current_time
-                                      and c.queue_start_time is None
-                                      and c.checkout_finish_time is None]
+            elif typ_udalosti == "koniec_nakupovania":
+                zoznam = [c for c in self.zakaznici_v_obchode
+                          if c.koniec_nakupovania <= self.sucasny_cas
+                          and c.cas_zaciatku_radu is None
+                          and c.koniec_spracovania is None]
 
-                for cust in customers_to_queue:
-                    cust.queue_start_time = self.current_time
-                    self.checkout_queue.put(cust)
+                for c in zoznam:
+                    c.cas_zaciatku_radu = self.sucasny_cas
+                    self.rad_pokladna.vloz(c)
 
-                    display_time = self.current_time / self.time_scale
-                    self.add_log(f"\n[T={display_time:7.2f}s] VSTUP DO RADU kupujúceho #{cust.id}")
-                    self.add_log(
-                        f"  Čas príchodu do obchodu: {cust.arrival_time / self.time_scale:.2f}s | Čas nákupovania: {cust.shopping_duration}min | Čas spracovania: {cust.checkout_duration:.2f}min")
-                    self.add_log(
-                        f"  *** Dĺžka radu: {self.checkout_queue.length()} | Nečinnosť pokladne: {self.total_idle_time:.2f}s ***")
-                    screen_line_count += 4
+                    cas = self.sucasny_cas / self.mierka
+                    self.pridaj_log(f"\n[T={cas:7.2f}s] VSTUP DO RADU zakaznika #{c.id}")
+                    self.pridaj_log(
+                        f"  Čas príchodu do obchodu: {c.cas_prichodu / self.mierka:.2f}s | Čas nakupovania: {c.trvanie_nakupovania}min | Čas spracovania: {c.trvanie_spracovania:.2f}min")
+                    self.pridaj_log(
+                        f"  *** Dĺžka radu: {self.rad_pokladna.dlzka()} | Nečinnosť pokladne: {self.celkova_neinnost:.2f}s ***")
+                    pocet_riadkov += 4
 
-                    # Aktualizuj štatistiky
-                    if self.checkout_queue.length() > self.max_queue_length:
-                        self.max_queue_length = self.checkout_queue.length()
-                        self.add_log(f"  !!! NOVÁ MAXIMÁLNA DĹŽKA RADU: {self.max_queue_length}")
-                        screen_line_count += 1
+                    if self.rad_pokladna.dlzka() > self.max_dlzka_radu:
+                        self.max_dlzka_radu = self.rad_pokladna.dlzka()
+                        self.pridaj_log(f"  !!! NOVÁ MAXIMÁLNA DĹŽKA RADU: {self.max_dlzka_radu}")
+                        pocet_riadkov += 1
 
-            event_index += 1
+            index_udalosti += 1
 
-            # ==== SPRACOVANIE POKLADNE ====
-            # Skontroluj, či pokladňa môže spracovať ďalšieho kupujúceho
-            if self.is_checkout_free(self.current_time) and not self.checkout_queue.is_empty():
-                next_customer = self.checkout_queue.get()
+            if self.je_pokladna_volna(self.sucasny_cas) and not self.rad_pokladna.je_prazdny():
+                dalsi = self.rad_pokladna.vyber()
+                cakanie = self.sucasny_cas - dalsi.cas_zaciatku_radu
+                koniec_spracovania = self.sucasny_cas + dalsi.trvanie_spracovania * 60
+                dalsi.koniec_spracovania = koniec_spracovania
+                self.pokladna_zaneprazdna_do = koniec_spracovania
+                self.zakaznici_obsluzeni += 1
 
-                # Výpočet čakania v rade
-                wait_time = self.current_time - next_customer.queue_start_time
+                cas = self.sucasny_cas / self.mierka
+                cakanie = cakanie / self.mierka
+                spracovanie = dalsi.trvanie_spracovania
 
-                # Čas konca spracovania pri pokladni (v sekundách)
-                checkout_end_time = self.current_time + next_customer.checkout_duration * 60
-                next_customer.checkout_finish_time = checkout_end_time
-                self.checkout_busy_until = checkout_end_time
-                self.customers_served += 1
+                self.pridaj_log(f"\n[T={cas:7.2f}s] ZAPLATENIE zakaznika #{dalsi.id}")
+                self.pridaj_log(
+                    f"  Čakanie v rade: {cakanie:.2f}s | Doba spracovania: {spracovanie:.2f}min")
+                self.pridaj_log(
+                    f"  *** Dĺžka radu: {self.rad_pokladna.dlzka()} | Nečinnosť pokladne: {self.celkova_neinnost:.2f}s ***")
+                pocet_riadkov += 4
 
-                display_time = self.current_time / self.time_scale
-                display_wait = wait_time / self.time_scale
-                display_checkout_duration = next_customer.checkout_duration
+                if cakanie > self.max_cakanie:
+                    self.max_cakanie = cakanie
+                    self.pridaj_log(
+                        f"  !!! NOVÁ MAXIMÁLNA DOBA ČAKANIA V RADE: {self.max_cakanie:.2f}s")
+                    pocet_riadkov += 1
 
-                self.add_log(f"\n[T={display_time:7.2f}s] ZAPLATENIE kupujúceho #{next_customer.id}")
-                self.add_log(
-                    f"  Čakanie v rade: {display_wait:.2f}s | Doba spracovania: {display_checkout_duration:.2f}min")
-                self.add_log(
-                    f"  *** Dĺžka radu: {self.checkout_queue.length()} | Nečinnosť pokladne: {self.total_idle_time:.2f}s ***")
-                screen_line_count += 4
-
-                # Aktualizuj maximálne čakanie
-                if wait_time > self.max_queue_wait:
-                    self.max_queue_wait = wait_time
-                    self.add_log(
-                        f"  !!! NOVÁ MAXIMÁLNA DOBA ČAKANIA V RADE: {self.max_queue_wait / self.time_scale:.2f}s")
-                    screen_line_count += 1
-
-            # Skontroluj nečinnosť pokladne
-            if self.is_checkout_free(self.current_time) and self.checkout_queue.is_empty():
-                idle_start = self.current_time
-                # Hľadaj ďalšiu udalosť
-                next_event_time = float('inf')
-                for time, _, _ in events[event_index:]:
-                    if time > self.current_time:
-                        next_event_time = time
+            if self.je_pokladna_volna(self.sucasny_cas) and self.rad_pokladna.je_prazdny():
+                zaciatok_neinnosti = self.sucasny_cas
+                nasledujuci_cas = float('inf')
+                for t, _, _ in udalosti[index_udalosti:]:
+                    if t > self.sucasny_cas:
+                        nasledujuci_cas = t
                         break
+                if nasledujuci_cas < float('inf'):
+                    trvanie_neinnosti = nasledujuci_cas - self.sucasny_cas
+                    self.celkova_neinnost += trvanie_neinnosti
 
-                if next_event_time < float('inf'):
-                    idle_duration = next_event_time - self.current_time
-                    self.total_idle_time += idle_duration
+            if pocet_riadkov > max_riadkov:
+                self.pridaj_log(f"\n{'=' * 100}")
+                self.pridaj_log("SCREENSHOT 1 - PRVÉ VYPLNENIE OBRAZOVKY")
+                self.pridaj_log(f"{'=' * 100}\n")
+                pocet_riadkov = 0
 
-            # Screenshot po vyplnení obrazovky
-            if screen_line_count > max_lines_before_screenshot:
-                self.add_log(f"\n{'=' * 100}")
-                self.add_log("SCREENSHOT 1 - PRVÉ VYPLNENIE OBRAZOVKY")
-                self.add_log(f"{'=' * 100}\n")
-                screen_line_count = 0
-
-        # ==== FINÁLNA ŠTATISTIKA ====
-        self.add_log(f"\n{'=' * 100}")
-        self.add_log("KONIEC SIMULÁCIE - FINÁLNA ŠTATISTIKA")
-        self.add_log(f"{'=' * 100}")
-        self.add_log(f"Celkový počet ľudí v obchode: {len(self.all_customers)}")
-        self.add_log(f"Obsúžení kupujúci: {self.customers_served}")
-        self.add_log(f"Maximálna dĺžka radu pri pokladni: {self.max_queue_length} ľudí")
-        self.add_log(f"Maximálna doba čakania v rade: {self.max_queue_wait / self.time_scale:.2f} sekúnd")
-        self.add_log(f"Celková nečinnosť pokladne: {self.total_idle_time / self.time_scale:.2f} sekúnd")
-        self.add_log(f"{'=' * 100}\n")
+        self.pridaj_log(f"\n{'=' * 100}")
+        self.pridaj_log("KONIEC SIMULÁCIE - FINÁLNA ŠTATISTIKA")
+        self.pridaj_log(f"{'=' * 100}")
+        self.pridaj_log(f"Celkový počet ľudí v obchode: {len(self.zakaznici)}")
+        self.pridaj_log(f"Obslúžení zakazníci: {self.zakaznici_obsluzeni}")
+        self.pridaj_log(f"Maximálna dĺžka radu pri pokladni: {self.max_dlzka_radu} ľudí")
+        self.pridaj_log(f"Maximálna doba čakania v rade: {self.max_cakanie:.2f} sekúnd")
+        self.pridaj_log(f"Celková nečinnosť pokladne: {self.celkova_neinnost:.2f} sekúnd")
+        self.pridaj_log(f"{'=' * 100}\n")
 
         return {
-            "total_customers": len(self.all_customers),
-            "max_queue_wait": self.max_queue_wait / self.time_scale,
-            "max_queue_length": self.max_queue_length,
-            "total_idle_time": self.total_idle_time / self.time_scale,
-            "customers_served": self.customers_served
+            "celkovy_pocet": len(self.zakaznici),
+            "max_cakanie": self.max_cakanie,
+            "max_dlzka_radu": self.max_dlzka_radu,
+            "celkova_neinnost": self.celkova_neinnost,
+            "zakaznici_obsluzeni": self.zakaznici_obsluzeni
         }
 
 
-# ============================================================================
-# HLAVNÝ PROGRAM
-# ============================================================================
-
 def main():
-    """Hlavný program"""
-
-    STUDENT_NUMBER = 2
+    CISLO_STUDENTA = 2
 
     print("\n" + "=" * 100)
     print("SIMULÁCIA OBCHODU S FIFO RADOM PRI POKLADNI")
     print("=" * 100)
-    print(f"Poradové číslo študenta: {STUDENT_NUMBER}")
+    print(f"Poradové číslo študenta: {CISLO_STUDENTA}")
     print(f"Doba simulácie: 8 hodín (zrýchľovaná 100x)")
     print(f"Počet spustení: 5")
     print("=" * 100 + "\n")
 
-    results = []
+    vysledky = []
 
-    # Spusti simuláciu 5x
-    for run_number in range(1, 6):
+    for cislo in range(1, 6):
         print(f"\n{'*' * 100}")
-        print(f"SPUSTENIE #{run_number}")
+        print(f"SPUSTENIE #{cislo}")
         print(f"{'*' * 100}\n")
 
-        simulator = ShopSimulator(student_number=STUDENT_NUMBER, operating_hours=8.0)
+        simulacia = SimulaciaObchodu(cislo_studenta=CISLO_STUDENTA, otvaracie_hodiny=8.0)
+        vysledok = simulacia.spusti()
+        vysledky.append(vysledok)
 
-        result = simulator.run()
-        results.append(result)
+        log_subor = f"simulation_run_{cislo}.log"
+        with open(log_subor, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(simulacia.logy))
 
-        log_filename = f"simulation_run_{run_number}.log"
-        with open(log_filename, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(simulator.log_lines))
-
-        print(f"\nLogy uložené do: {log_filename}")
+        print(f"\nLogy uložené do: {log_subor}")
 
         time_module.sleep(1)
 
@@ -415,17 +307,17 @@ def main():
     print(f"{'Spustenie':<12} {'Počet ľudí':<15} {'Max čakanie(s)':<18} {'Max dĺžka radu':<18} {'Nečinnosť(s)':<15}")
     print("-" * 100)
 
-    for i, result in enumerate(results, 1):
+    for i, vysledok in enumerate(vysledky, 1):
         print(
-            f"Spustenie {i:<4} {result['total_customers']:<15} {result['max_queue_wait']:<18.2f} {result['max_queue_length']:<18} {result['total_idle_time']:<15.2f}")
+            f"Spustenie {i:<4} {vysledok['celkovy_pocet']:<15} {vysledok['max_cakanie']:<18.2f} {vysledok['max_dlzka_radu']:<18} {vysledok['celkova_neinnost']:<15.2f}")
 
-    avg_customers = sum(r['total_customers'] for r in results) / len(results)
-    avg_wait = sum(r['max_queue_wait'] for r in results) / len(results)
-    avg_queue = sum(r['max_queue_length'] for r in results) / len(results)
-    avg_idle = sum(r['total_idle_time'] for r in results) / len(results)
+    priemer_ludi = sum(r['celkovy_pocet'] for r in vysledky) / len(vysledky)
+    priemer_cakanie = sum(r['max_cakanie'] for r in vysledky) / len(vysledky)
+    priemer_rad = sum(r['max_dlzka_radu'] for r in vysledky) / len(vysledky)
+    priemer_neinnost = sum(r['celkova_neinnost'] for r in vysledky) / len(vysledky)
 
     print("-" * 100)
-    print(f"{'PRIEMER':<12} {avg_customers:<15.2f} {avg_wait:<18.2f} {avg_queue:<18.2f} {avg_idle:<15.2f}")
+    print(f"{'PRIEMER':<12} {priemer_ludi:<15.2f} {priemer_cakanie:<18.2f} {priemer_rad:<18.2f} {priemer_neinnost:<15.2f}")
     print("=" * 100 + "\n")
 
 
