@@ -5,6 +5,10 @@ import random
 import time as time_module
 
 
+def format_cas(cas):
+    return f"{cas:.0f} s"
+
+
 class Uzol:
     def __init__(self, data):
         self.data = data
@@ -67,7 +71,7 @@ class Zakaznik:
     koniec_spracovania: float = None
 
     def __repr__(self):
-        return f"Zakaznik(id={self.id}, prichod={self.cas_prichodu:.1f}s)"
+        return f"Zakaznik(id={self.id}, prichod={format_cas(self.cas_prichodu)})"
 
 
 class SimulaciaObchodu:
@@ -137,8 +141,9 @@ class SimulaciaObchodu:
     def vypis_stav(self, typ_udalosti: str = ""):
         dlzka_radu = self.rad_pokladna.dlzka()
         cas = self.sucasny_cas / self.mierka
+        cas_format = format_cas(cas)
 
-        sprava = f"\n[T={cas:7.2f}s | {typ_udalosti:15} | Rad: {dlzka_radu:3d} | Nečinnosť: {self.celkova_neinnost:8.2f}s]"
+        sprava = f"\n[T={cas_format} | {typ_udalosti:15} | Rad: {dlzka_radu:3d} | Nečinnosť: {format_cas(self.celkova_neinnost)}]"
         self.pridaj_log(sprava)
 
     def spusti(self) -> dict:
@@ -146,7 +151,7 @@ class SimulaciaObchodu:
         self.pridaj_log("=" * 100)
         self.pridaj_log("SIMULÁCIA NÁKUPU V OBCHODE")
         self.pridaj_log(f"Poradové číslo študenta: {self.cislo_studenta}")
-        self.pridaj_log(f"Doba prevádzky: {self.otvaracie_hodiny} hodín ({self.celkovy_cas}s)")
+        self.pridaj_log(f"Doba prevádzky: {self.otvaracie_hodiny} hodín ({format_cas(self.celkovy_cas)})")
         self.pridaj_log(f"Zrýchlenie: {self.mierka}x")
         self.pridaj_log("=" * 100)
 
@@ -180,9 +185,10 @@ class SimulaciaObchodu:
             if typ_udalosti == "prichod":
                 self.zakaznici_v_obchode.append(zakaznik)
                 cas = self.sucasny_cas / self.mierka
-                self.pridaj_log(f"\n[T={cas:7.2f}s] PRÍCHOD zakaznika #{zakaznik.id}")
+                cas_format = format_cas(cas)
+                self.pridaj_log(f"\n[T={cas_format}] PRÍCHOD zakaznika #{zakaznik.id}")
                 self.pridaj_log(
-                    f"  Čas príchodu: {cas:.2f}s | Nakupovanie: {zakaznik.trvanie_nakupovania}min | Pokladňa: {zakaznik.trvanie_spracovania:.2f}min")
+                    f"  Čas príchodu: {format_cas(cas)} | Nakupovanie: {zakaznik.trvanie_nakupovania}min | Pokladňa: {zakaznik.trvanie_spracovania:.2f}min")
                 pocet_riadkov += 3
 
             elif typ_udalosti == "koniec_nakupovania":
@@ -196,11 +202,12 @@ class SimulaciaObchodu:
                     self.rad_pokladna.vloz(c)
 
                     cas = self.sucasny_cas / self.mierka
-                    self.pridaj_log(f"\n[T={cas:7.2f}s] VSTUP DO RADU zakaznika #{c.id}")
+                    cas_format = format_cas(cas)
+                    self.pridaj_log(f"\n[T={cas_format}] VSTUP DO RADU zakaznika #{c.id}")
                     self.pridaj_log(
-                        f"  Čas príchodu do obchodu: {c.cas_prichodu / self.mierka:.2f}s | Čas nakupovania: {c.trvanie_nakupovania}min | Čas spracovania: {c.trvanie_spracovania:.2f}min")
+                        f"  Čas príchodu do obchodu: {format_cas(c.cas_prichodu / self.mierka)} | Čas nakupovania: {c.trvanie_nakupovania}min | Čas spracovania: {c.trvanie_spracovania:.2f}min")
                     self.pridaj_log(
-                        f"  *** Dĺžka radu: {self.rad_pokladna.dlzka()} | Nečinnosť pokladne: {self.celkova_neinnost:.2f}s ***")
+                        f"  *** Dĺžka radu: {self.rad_pokladna.dlzka()} | Nečinnosť pokladne: {format_cas(self.celkova_neinnost)} ***")
                     pocet_riadkov += 4
 
                     if self.rad_pokladna.dlzka() > self.max_dlzka_radu:
@@ -222,17 +229,20 @@ class SimulaciaObchodu:
                 cakanie = cakanie / self.mierka
                 spracovanie = dalsi.trvanie_spracovania
 
-                self.pridaj_log(f"\n[T={cas:7.2f}s] ZAPLATENIE zakaznika #{dalsi.id}")
+                cas_format = format_cas(cas)
+                cakanie_format = format_cas(cakanie)
+
+                self.pridaj_log(f"\n[T={cas_format}] ZAPLATENIE zakaznika #{dalsi.id}")
                 self.pridaj_log(
-                    f"  Čakanie v rade: {cakanie:.2f}s | Doba spracovania: {spracovanie:.2f}min")
+                    f"  Čakanie v rade: {cakanie_format} | Doba spracovania: {spracovanie:.2f}min")
                 self.pridaj_log(
-                    f"  *** Dĺžka radu: {self.rad_pokladna.dlzka()} | Nečinnosť pokladne: {self.celkova_neinnost:.2f}s ***")
+                    f"  *** Dĺžka radu: {self.rad_pokladna.dlzka()} | Nečinnosť pokladne: {format_cas(self.celkova_neinnost)} ***")
                 pocet_riadkov += 4
 
                 if cakanie > self.max_cakanie:
                     self.max_cakanie = cakanie
                     self.pridaj_log(
-                        f"  !!! NOVÁ MAXIMÁLNA DOBA ČAKANIA V RADE: {self.max_cakanie:.2f}s")
+                        f"  !!! NOVÁ MAXIMÁLNA DOBA ČAKANIA V RADE: {format_cas(self.max_cakanie)}")
                     pocet_riadkov += 1
 
             if self.je_pokladna_volna(self.sucasny_cas) and self.rad_pokladna.je_prazdny():
@@ -258,8 +268,8 @@ class SimulaciaObchodu:
         self.pridaj_log(f"Celkový počet ľudí v obchode: {len(self.zakaznici)}")
         self.pridaj_log(f"Obslúžení zakazníci: {self.zakaznici_obsluzeni}")
         self.pridaj_log(f"Maximálna dĺžka radu pri pokladni: {self.max_dlzka_radu} ľudí")
-        self.pridaj_log(f"Maximálna doba čakania v rade: {self.max_cakanie:.2f} sekúnd")
-        self.pridaj_log(f"Celková nečinnosť pokladne: {self.celkova_neinnost:.2f} sekúnd")
+        self.pridaj_log(f"Maximálna doba čakania v rade: {format_cas(self.max_cakanie)}")
+        self.pridaj_log(f"Celková nečinnosť pokladne: {format_cas(self.celkova_neinnost)}")
         self.pridaj_log(f"{'=' * 100}\n")
 
         return {
@@ -308,8 +318,10 @@ def main():
     print("-" * 100)
 
     for i, vysledok in enumerate(vysledky, 1):
+        max_cakanie_format = format_cas(vysledok['max_cakanie'])
+        neinnost_format = format_cas(vysledok['celkova_neinnost'])
         print(
-            f"Spustenie {i:<4} {vysledok['celkovy_pocet']:<15} {vysledok['max_cakanie']:<18.2f} {vysledok['max_dlzka_radu']:<18} {vysledok['celkova_neinnost']:<15.2f}")
+            f"Spustenie {i:<4} {vysledok['celkovy_pocet']:<15} {max_cakanie_format:<18} {vysledok['max_dlzka_radu']:<18} {neinnost_format:<15}")
 
     priemer_ludi = sum(r['celkovy_pocet'] for r in vysledky) / len(vysledky)
     priemer_cakanie = sum(r['max_cakanie'] for r in vysledky) / len(vysledky)
@@ -317,7 +329,7 @@ def main():
     priemer_neinnost = sum(r['celkova_neinnost'] for r in vysledky) / len(vysledky)
 
     print("-" * 100)
-    print(f"{'PRIEMER':<12} {priemer_ludi:<15.2f} {priemer_cakanie:<18.2f} {priemer_rad:<18.2f} {priemer_neinnost:<15.2f}")
+    print(f"{'PRIEMER':<12} {priemer_ludi:<15.2f} {format_cas(priemer_cakanie):<18} {priemer_rad:<18.2f} {format_cas(priemer_neinnost):<15}")
     print("=" * 100 + "\n")
 
 
