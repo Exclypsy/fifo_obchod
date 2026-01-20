@@ -6,12 +6,13 @@ Cieľom simulácie je analyzovať dĺžku radu, dobu čakania zákazníkov a ne�
 ---
 
 ## Obsah
-- [Použité dátové štruktúry](#použité-dátové-štruktúry)
-- [FIFO – First In, First Out](#fifo--first-in-first-out)
-- [Prečo používať FIFO](#prečo-používať-fifo)
-- [Simulácia zákazníkov](#simulácia-zákazníkov)
-- [Ukážky z behu programu](#ukážky-z-behu-programu)
-- [Zhrnutie – vlastné slová](#zhrnutie--vlastné-slová)
+- Použité dátové štruktúry
+- FIFO – First In, First Out
+- Dôvody používania FIFO
+- Implementácia FIFO v projekte
+- Simulácia zákazníkov
+- Ukážky z behu programu
+- Zhrnutie – vlastné slová
 
 ---
 
@@ -19,109 +20,164 @@ Cieľom simulácie je analyzovať dĺžku radu, dobu čakania zákazníkov a ne�
 
 V projekte sa používajú nasledovné dátové štruktúry:
 
-- **FIFO rad (queue)** – modelovanie radu pri pokladni
-- **Zoznamy (`list`)** – evidencia zákazníkov v obchode
-- **Deque (`collections.deque`)** – efektívna implementácia FIFO
-- **Triedy a dátové triedy (`class`, `@dataclass`)** – reprezentácia zákazníka a simulácie
+- **FIFO (queue)** – modelovanie radu pri pokladni  
+- **Deque (`collections.deque`)** – efektívna implementácia FIFO  
+- **Zoznamy (`list`)** – evidencia zákazníkov  
+- **Triedy a dátové triedy (`class`, `@dataclass`)** – objektový návrh riešenia  
 
 ---
 
 ## FIFO – First In, First Out
 
-FIFO (First-In, First-Out) je dátová štruktúra, kde:
+FIFO (First-In, First-Out) je dátová štruktúra, v ktorej platí:
 
-- prvok, ktorý **vstúpi ako prvý**, je **spracovaný ako prvý**
-- nové prvky sa **vkladajú na koniec**
-- prvky sa **odoberajú zo začiatku**
+- prvok, ktorý vstúpi ako prvý, je spracovaný ako prvý  
+- vkladanie prebieha na koniec radu  
+- odoberanie prebieha zo začiatku radu
 
-V reálnom svete FIFO presne zodpovedá správaniu **radu ľudí pri pokladni**.
+<img width="4202" height="2139" alt="image" src="https://github.com/user-attachments/assets/424ea9fa-226e-427f-82fc-76467a24b0a1" />
 
-### Schéma FIFO radu
 
-<img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/f37ea3e3-898a-4db6-9cc0-30db5f44da00" />
+FIFO presne zodpovedá správaniu **reálneho radu ľudí pri pokladni**.
+
+---
+
+## Dôvody používania FIFO
+
+Použitie FIFO v simulácii má viacero výhod:
+
+- spravodlivé obsluhovanie zákazníkov  
+- jednoduchá a prehľadná implementácia  
+- realistický model reálneho sveta  
+- konštantná časová zložitosť operácií  
+- dobrá čitateľnosť a rozšíriteľnosť kódu  
 
 ---
 
 ## Implementácia FIFO v projekte
 
-FIFO je implementované pomocou triedy `FIFO`, ktorá interne využíva `deque`.
-
-Základné operácie:
-
-- `vloz(prvok)` – vloženie zákazníka do radu
-- `vyber()` – obslúženie zákazníka
-- `dlzka()` – aktuálna dĺžka radu
-- `je_prazdny()` – kontrola prázdneho radu
-- `pozri()` – náhľad na prvý prvok
-
-### Ilustrácia operácií FIFO
-
-![FIFO operácie](images/fifo_operations.png)
+FIFO rad je v projekte implementovaný vlastnou triedou `FIFO`, ktorá interne využíva dátovú štruktúru `deque`.  
+Každý prvok v rade je zapuzdrený triedou `Uzol`.
 
 ---
 
-## Prečo používať FIFO
+### Trieda Uzol
 
-Použitie FIFO v tejto simulácii má viacero výhod:
+```python
+class Uzol:
+    def __init__(self, data):
+        self.data = data
 
-- ✅ **Spravodlivosť** – zákazníci sú obsluhovaní v poradí, v akom prišli
-- ✅ **Jednoduchosť implementácie**
-- ✅ **Realistický model reálneho sveta**
-- ✅ **Predvídateľné správanie systému**
-- ✅ **Efektívnosť** – `deque` umožňuje rýchle vkladanie a odoberanie prvkov
+    def __repr__(self):
+        return f"Uzol({self.data})"
+```
+Trieda reprezentuje jeden prvok FIFO radu a uchováva objekt zákazníka.
 
-FIFO je preto ideálnou voľbou pre simuláciu radu pri pokladni.
+---
+
+### Inicializácia FIFO radu
+
+```python
+class FIFO:
+    def __init__(self, velkost: int):
+        self.buffer = deque(maxlen=velkost)
+        self.hlava = None
+        self.chvost = None
+        self.max_velkost = velkost
+```
+FIFO má definovanú maximálnu kapacitu a uchováva si referencie na hlavu a chvost radu.
+
+---
+
+### Vkladanie prvkov do FIFO
+
+```python
+def vloz(self, prvok):
+    if len(self.buffer) >= self.max_velkost:
+        return False
+    uzol = Uzol(prvok)
+    self.buffer.append(uzol)
+    if self.chvost is None:
+        self.hlava = uzol
+        self.chvost = uzol
+    else:
+        self.chvost = uzol
+    return True
+```
+Zákazník je vložený na koniec radu v správnom poradí.
+
+---
+
+### Odoberanie prvkov z FIFO
+
+```python
+def vyber(self):
+    if len(self.buffer) == 0:
+        return None
+    uzol = self.buffer.popleft()
+    self.hlava = self.buffer[0] if len(self.buffer) > 0 else None
+    if len(self.buffer) == 0:
+        self.chvost = None
+    return uzol.data
+```
+Zákazník je obslúžený zo začiatku radu.
+
+---
+
+### Pomocné metódy FIFO
+
+```python
+def dlzka(self) -> int:
+    return len(self.buffer)
+
+def je_prazdny(self) -> bool:
+    return len(self.buffer) == 0
+
+def pozri(self):
+    if len(self.buffer) == 0:
+        return None
+    return self.buffer[0].data
+```
+
+---
+
+### Použitie FIFO v simulácii
+
+```python
+self.rad_pokladna = FIFO(velkost=1000)
+self.rad_pokladna.vloz(c)
+dalsi = self.rad_pokladna.vyber()
+```
+
+FIFO rad reprezentuje rad pri pokladni.
 
 ---
 
 ## Simulácia zákazníkov
 
-Každý zákazník je reprezentovaný triedou `Zakaznik`, ktorá obsahuje:
+Každý zákazník je reprezentovaný triedou `Zakaznik` a má:
 
-- identifikátor zákazníka
-- čas príchodu do obchodu
-- dobu nakupovania
-- čas vstupu do radu
-- dobu spracovania pri pokladni
-- čas ukončenia obsluhy
+- čas príchodu  
+- dobu nakupovania  
+- čas vstupu do radu  
+- dobu spracovania pri pokladni  
+- čas ukončenia obsluhy  
 
-Zákazníci:
-1. prídu do obchodu
-2. nakupujú určitý čas
-3. vstúpia do FIFO radu
-4. čakajú na obsluhu
-5. zaplatia a odchádzajú
+Simulácia prebieha ako diskrétna udalosťová simulácia.
 
 ---
 
 ## Ukážky z behu programu
 
-Nižšie sú uvedené ukážky výpisov zo simulácie.
+Sem vložte screenshoty:
 
-### Príchod zákazníka
-
-![Príchod zákazníka](images/prichod.png)
-
----
-
-### Vstup zákazníka do radu
-
-![Vstup do radu](images/rad.png)
-
----
-
-### Obsluha pri pokladni
-
-![Obsluha](images/obsluha.png)
-
----
-
-### Finálna štatistika simulácie
-
-![Štatistika](images/statistika.png)
+- príchod zákazníka  
+- vstup do radu  
+- obsluha pri pokladni  
+- finálna štatistika  
 
 ---
 
 ## Zhrnutie – vlastné slová
 
-*(Túto časť vyplní autor projektu vlastnými slovami.)*
+(Túto časť vyplní autor projektu vlastnými slovami.)
