@@ -38,9 +38,7 @@ V reálnom svete FIFO presne zodpovedá správaniu **radu ľudí pri pokladni**.
 
 ### Schéma FIFO radu
 
-![FIFO schéma](images/fifo_schema.png)
-
-*(Obrázok znázorňuje vkladanie prvkov na koniec radu a odoberanie zo začiatku)*
+<img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/f37ea3e3-898a-4db6-9cc0-30db5f44da00" />
 
 ---
 
