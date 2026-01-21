@@ -140,7 +140,7 @@ class SimulaciaObchodu:
 
     def vypis_stav(self, typ_udalosti: str = ""):
         dlzka_radu = self.rad_pokladna.dlzka()
-        cas = self.sucasny_cas / self.mierka
+        cas = self.sucasny_cas
         cas_format = format_cas(cas)
 
         sprava = f"\n[T={cas_format} | {typ_udalosti:15} | Rad: {dlzka_radu:3d} | Nečinnosť: {format_cas(self.celkova_neinnost)}]"
@@ -184,7 +184,7 @@ class SimulaciaObchodu:
 
             if typ_udalosti == "prichod":
                 self.zakaznici_v_obchode.append(zakaznik)
-                cas = self.sucasny_cas / self.mierka
+                cas = self.sucasny_cas
                 cas_format = format_cas(cas)
                 self.pridaj_log(f"\n[T={cas_format}] PRÍCHOD zakaznika #{zakaznik.id}")
                 self.pridaj_log(
@@ -201,11 +201,11 @@ class SimulaciaObchodu:
                     c.cas_zaciatku_radu = self.sucasny_cas
                     self.rad_pokladna.vloz(c)
 
-                    cas = self.sucasny_cas / self.mierka
+                    cas = self.sucasny_cas
                     cas_format = format_cas(cas)
                     self.pridaj_log(f"\n[T={cas_format}] VSTUP DO RADU zakaznika #{c.id}")
                     self.pridaj_log(
-                        f"  Čas príchodu do obchodu: {format_cas(c.cas_prichodu / self.mierka)} | Čas nakupovania: {c.trvanie_nakupovania}min | Čas spracovania: {c.trvanie_spracovania:.2f}min")
+                        f"  Čas príchodu do obchodu: {format_cas(c.cas_prichodu)} | Čas nakupovania: {c.trvanie_nakupovania}min | Čas spracovania: {c.trvanie_spracovania:.2f}min")
                     self.pridaj_log(
                         f"  *** Dĺžka radu: {self.rad_pokladna.dlzka()} | Nečinnosť pokladne: {format_cas(self.celkova_neinnost)} ***")
                     pocet_riadkov += 4
@@ -225,8 +225,8 @@ class SimulaciaObchodu:
                 self.pokladna_zaneprazdna_do = koniec_spracovania
                 self.zakaznici_obsluzeni += 1
 
-                cas = self.sucasny_cas / self.mierka
-                cakanie = cakanie / self.mierka
+                cas = self.sucasny_cas
+                cakanie = cakanie
                 spracovanie = dalsi.trvanie_spracovania
 
                 cas_format = format_cas(cas)
@@ -283,12 +283,13 @@ class SimulaciaObchodu:
 
 def main():
     CISLO_STUDENTA = 2
+    OTVARACIE_HODINY = 8.0
 
     print("\n" + "=" * 100)
     print("SIMULÁCIA OBCHODU S FIFO RADOM PRI POKLADNI")
     print("=" * 100)
     print(f"Poradové číslo študenta: {CISLO_STUDENTA}")
-    print(f"Doba simulácie: 8 hodín (zrýchľovaná 100x)")
+    print(f"Doba simulácie: {OTVARACIE_HODINY} hodín (zrýchľovaná 100x)")
     print(f"Počet spustení: 5")
     print("=" * 100 + "\n")
 
@@ -299,7 +300,10 @@ def main():
         print(f"SPUSTENIE #{cislo}")
         print(f"{'*' * 100}\n")
 
-        simulacia = SimulaciaObchodu(cislo_studenta=CISLO_STUDENTA, otvaracie_hodiny=8.0)
+        simulacia = SimulaciaObchodu(
+            cislo_studenta=CISLO_STUDENTA,
+            otvaracie_hodiny=OTVARACIE_HODINY
+        )
         vysledok = simulacia.spusti()
         vysledky.append(vysledok)
 
