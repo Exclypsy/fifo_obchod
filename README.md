@@ -185,4 +185,4 @@ Simulácia prebieha ako diskrétna udalosťová simulácia.
 
 ## Zhrnutie – vlastné slová
 
-(Túto časť vyplní autor projektu vlastnými slovami.)
+
