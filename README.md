@@ -169,12 +169,14 @@ Simulácia prebieha ako diskrétna udalosťová simulácia.
 
 ## Ukážky z behu programu
 
-Sem vložte screenshoty:
-
-- príchod zákazníka  
-- vstup do radu  
-- obsluha pri pokladni  
-- finálna štatistika  
+- príchod zákazníka
+<img width="490" height="54" alt="Screenshot 2026-01-22 at 19 19 13" src="https://github.com/user-attachments/assets/0e75dfe6-4c95-4b5e-acf2-263b9200015c" />
+- vstup do radu
+<img width="669" height="84" alt="Screenshot 2026-01-22 at 19 19 18" src="https://github.com/user-attachments/assets/989d712c-2785-450f-b3d5-7efc9e2fc026" />  
+- finálna štatistika
+<img width="793" height="202" alt="Screenshot 2026-01-22 at 19 18 53" src="https://github.com/user-attachments/assets/3b0419a5-015b-4d73-a4ab-6c2f04a96ef6" />
+- tabuľka priemerov 
+<img width="790" height="285" alt="Screenshot 2026-01-22 at 19 17 26" src="https://github.com/user-attachments/assets/69404987-c662-45db-87e8-15878179363b" />
 
 ---
 
