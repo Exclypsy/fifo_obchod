@@ -185,4 +185,4 @@ Simulácia prebieha ako diskrétna udalosťová simulácia.
 
 ## Zhrnutie – vlastné slová
 
-
+Takže mojou ulohou bolo spravit FIFO simulaciu obchodu. Prve som zadaniu ulohy nechapal, prislo mi to komplikovane. Velmi som nechapal ako to ma fungovat s FIFOm. Ale ked som sa do toho obul, samozrejme s pomocou AI tak som pomalicky zacal chapat ze co ako funguje. Po dokonceni projektu mozem povedat ze na takych 90 percent chapem ako FIFO funguje. Ale netrufol by som si to naprogramovat z hlavy. Kod vysvetlit a zanalizovat by som vedel bezproblemov. Jediny problem ktorý nastal tak to ze mi nefungoval git medzi pocitacmi a nikedy mi nieco nepushlo. Celkovo to bol dobry projekt na ktorom som sa dost naucil. 
