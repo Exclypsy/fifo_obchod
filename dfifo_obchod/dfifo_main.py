@@ -17,29 +17,34 @@ class Uzol:
         return f"Uzol({self.data})"
 
 
-class FIFO:
-    def __init__(self, velkost: int):
-        self.buffer = deque(maxlen=velkost)
+class DynamicFIFO:
+    """
+    Dynamická FIFO fronta s automatickým rozširovaním.
+    Nahrádza pôvodnú FIFO s pevnou veľkosťou.
+    """
+
+    def __init__(self, init_velkost: int = 10):
+        self.buffer = deque(maxlen=None)
         self.hlava = None
         self.chvost = None
-        self.max_velkost = velkost
+        self.init_velkost = init_velkost
+        self.aktualna_velkost = 0
 
     def vloz(self, prvok):
-        if len(self.buffer) >= self.max_velkost:
-            return False
         uzol = Uzol(prvok)
         self.buffer.append(uzol)
+        self.aktualna_velkost = len(self.buffer)
+
         if self.chvost is None:
             self.hlava = uzol
-            self.chvost = uzol
-        else:
-            self.chvost = uzol
+        self.chvost = uzol
         return True
 
     def vyber(self):
         if len(self.buffer) == 0:
             return None
         uzol = self.buffer.popleft()
+        self.aktualna_velkost = len(self.buffer)
         self.hlava = self.buffer[0] if len(self.buffer) > 0 else None
         if len(self.buffer) == 0:
             self.chvost = None
@@ -57,7 +62,7 @@ class FIFO:
         return self.buffer[0].data
 
     def __repr__(self):
-        return f"FIFO(dlzka={self.dlzka()}, max_velkost={self.max_velkost})"
+        return f"DynamicFIFO(dlzka={self.dlzka()}, init_velkost={self.init_velkost})"
 
 
 @dataclass
@@ -82,7 +87,8 @@ class SimulaciaObchodu:
         self.sucasny_cas = 0.0
         self.mierka = 100
 
-        self.rad_pokladna = FIFO(velkost=1000)
+        # ZMENENÉ: Používame dynamickú FIFO namiesto statickej
+        self.rad_pokladna = DynamicFIFO(init_velkost=1000)
         self.zakaznici: List[Zakaznik] = []
         self.zakaznici_v_obchode: List[Zakaznik] = []
 
@@ -149,7 +155,7 @@ class SimulaciaObchodu:
     def spusti(self) -> dict:
         self.logy = []
         self.pridaj_log("=" * 100)
-        self.pridaj_log("SIMULÁCIA NÁKUPU V OBCHODE")
+        self.pridaj_log("SIMULÁCIA NÁKUPU V OBCHODE - DYNAMICKÁ FIFO")
         self.pridaj_log(f"Poradové číslo študenta: {self.cislo_studenta}")
         self.pridaj_log(f"Doba prevádzky: {self.otvaracie_hodiny} hodín ({format_cas(self.celkovy_cas)})")
         self.pridaj_log(f"Zrýchlenie: {self.mierka}x")
@@ -199,7 +205,12 @@ class SimulaciaObchodu:
 
                 for c in zoznam:
                     c.cas_zaciatku_radu = self.sucasny_cas
-                    self.rad_pokladna.vloz(c)
+                    # Dynamická FIFO - vloženie vždy úspešné
+                    uspech = self.rad_pokladna.vloz(c)
+                    # Log pre dynamické správanie (voliteľné)
+                    if self.rad_pokladna.aktualna_velkost > 1000:
+                        self.pridaj_log(
+                            f"  *** DYNAMICKÉ ROZŠÍRENIE RADU nad 1000! Aktuálna veľkosť: {self.rad_pokladna.aktualna_velkost} ***")
 
                     cas = self.sucasny_cas
                     cas_format = format_cas(cas)
@@ -258,18 +269,19 @@ class SimulaciaObchodu:
 
             if pocet_riadkov > max_riadkov:
                 self.pridaj_log(f"\n{'=' * 100}")
-                self.pridaj_log("SCREENSHOT 1 - PRVÉ VYPLNENIE OBRAZOVKY")
+                self.pridaj_log(f"SCREENSHOT 1 - PRVÉ VYPLNENIE OBRAZOVKY")
                 self.pridaj_log(f"{'=' * 100}\n")
                 pocet_riadkov = 0
 
         self.pridaj_log(f"\n{'=' * 100}")
-        self.pridaj_log("KONIEC SIMULÁCIE - FINÁLNA ŠTATISTIKA")
+        self.pridaj_log("KONIEC SIMULÁCIE - FINÁLNA ŠTATISTIKA (DYNAMICKÁ FIFO)")
         self.pridaj_log(f"{'=' * 100}")
         self.pridaj_log(f"Celkový počet ľudí v obchode: {len(self.zakaznici)}")
         self.pridaj_log(f"Obslúžení zakazníci: {self.zakaznici_obsluzeni}")
         self.pridaj_log(f"Maximálna dĺžka radu pri pokladni: {self.max_dlzka_radu} ľudí")
         self.pridaj_log(f"Maximálna doba čakania v rade: {format_cas(self.max_cakanie)}")
         self.pridaj_log(f"Celková nečinnosť pokladne: {format_cas(self.celkova_neinnost)}")
+        self.pridaj_log(f"Finálna veľkosť dynamickej FIFO: {self.rad_pokladna.aktualna_velkost}")
         self.pridaj_log(f"{'=' * 100}\n")
 
         return {
@@ -277,7 +289,8 @@ class SimulaciaObchodu:
             "max_cakanie": self.max_cakanie,
             "max_dlzka_radu": self.max_dlzka_radu,
             "celkova_neinnost": self.celkova_neinnost,
-            "zakaznici_obsluzeni": self.zakaznici_obsluzeni
+            "zakaznici_obsluzeni": self.zakaznici_obsluzeni,
+            "finálna_velkost_radu": self.rad_pokladna.aktualna_velkost
         }
 
 
@@ -286,7 +299,7 @@ def main():
     OTVARACIE_HODINY = 8.0
 
     print("\n" + "=" * 100)
-    print("SIMULÁCIA OBCHODU S FIFO RADOM PRI POKLADNI")
+    print("SIMULÁCIA OBCHODU S DYNAMICKOU FIFO RADOM PRI POKLADNI")
     print("=" * 100)
     print(f"Poradové číslo študenta: {CISLO_STUDENTA}")
     print(f"Doba simulácie: {OTVARACIE_HODINY} hodín (zrýchľovaná 100x)")
@@ -307,7 +320,7 @@ def main():
         vysledok = simulacia.spusti()
         vysledky.append(vysledok)
 
-        log_subor = f"simulation_run_{cislo}.log"
+        log_subor = f"dynamic_simulation_run_{cislo}.log"
         with open(log_subor, 'w', encoding='utf-8') as f:
             f.write('\n'.join(simulacia.logy))
 
@@ -316,24 +329,27 @@ def main():
         time_module.sleep(1)
 
     print("\n" + "=" * 100)
-    print("VÝSLEDKY VŠETKÝCH 5 SPUSTENÍ")
+    print("VÝSLEDKY VŠETKÝCH 5 SPUSTENÍ (DYNAMICKÁ FIFO)")
     print("=" * 100)
-    print(f"{'Spustenie':<12} {'Počet ľudí':<15} {'Max čakanie(s)':<18} {'Max dĺžka radu':<18} {'Nečinnosť(s)':<15}")
-    print("-" * 100)
+    print(
+        f"{'Spustenie':<12} {'Počet ľudí':<15} {'Max čakanie(s)':<18} {'Max dĺžka radu':<18} {'Nečinnosť(s)':<15} {'Fin.rád':<10}")
+    print("-" * 110)
 
     for i, vysledok in enumerate(vysledky, 1):
         max_cakanie_format = format_cas(vysledok['max_cakanie'])
         neinnost_format = format_cas(vysledok['celkova_neinnost'])
         print(
-            f"Spustenie {i:<4} {vysledok['celkovy_pocet']:<15} {max_cakanie_format:<18} {vysledok['max_dlzka_radu']:<18} {neinnost_format:<15}")
+            f"Spustenie {i:<4} {vysledok['celkovy_pocet']:<15} {max_cakanie_format:<18} {vysledok['max_dlzka_radu']:<18} {neinnost_format:<15} {vysledok['finálna_velkost_radu']:<10}")
 
     priemer_ludi = sum(r['celkovy_pocet'] for r in vysledky) / len(vysledky)
     priemer_cakanie = sum(r['max_cakanie'] for r in vysledky) / len(vysledky)
     priemer_rad = sum(r['max_dlzka_radu'] for r in vysledky) / len(vysledky)
     priemer_neinnost = sum(r['celkova_neinnost'] for r in vysledky) / len(vysledky)
+    priemer_fin_rad = sum(r['finálna_velkost_radu'] for r in vysledky) / len(vysledky)
 
-    print("-" * 100)
-    print(f"{'PRIEMER':<12} {priemer_ludi:<15.2f} {format_cas(priemer_cakanie):<18} {priemer_rad:<18.2f} {format_cas(priemer_neinnost):<15}")
+    print("-" * 110)
+    print(
+        f"{'PRIEMER':<12} {priemer_ludi:<15.2f} {format_cas(priemer_cakanie):<18} {priemer_rad:<18.2f} {format_cas(priemer_neinnost):<15} {priemer_fin_rad:<10.0f}")
     print("=" * 100 + "\n")
 
 
