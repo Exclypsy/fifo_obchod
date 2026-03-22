@@ -33,9 +33,9 @@ V projekte sa používajú nasledovné dátové štruktúry:
 **Dynamické FIFO** je vylepšená verzia klasického FIFO:
 
 ```
-🟢 PRVÁ ZMENA: Neobmedzená kapacita radu
-🟢 DRUHÁ ZMENA: Vždy úspešné vloženie (vracia True)
-🟢 TRETIA ZMENA: Automatické rozširovanie podľa potreby
+ PRVÁ ZMENA: Neobmedzená kapacita radu
+ DRUHÁ ZMENA: Vždy úspešné vloženie (vracia True)
+ TRETIA ZMENA: Automatické rozširovanie podľa potreby
 ```
 
 <img width="4202" height="2139" alt="Dynamic FIFO" src="https://github.com/user-attachments/assets/424ea9fa-226e-427f-82fc-76467a24b0a1" />
@@ -47,12 +47,12 @@ V projekte sa používajú nasledovné dátové štruktúry:
 ## Dôvody používania dynamického FIFO
 
 ```
-✅ Žiadne odrádzanie zákazníkov
-✅ Realistické správanie obchodu
-✅ Automatické prispôsobenie zaťaženiu
-✅ Konštantná časová zložitosť O(1)
-✅ Jednoduché rozšírenie na ďalšie scenáre
-✅ Lepšie štatistiky maximálnej dĺžky radu
+ Žiadne odrádzanie zákazníkov
+ Realistické správanie obchodu
+ Automatické prispôsobenie zaťaženiu
+ Konštantná časová zložitosť O(1)
+ Jednoduché rozšírenie na ďalšie scenáre
+ Lepšie štatistiky maximálnej dĺžky radu
 ```
 
 ---
@@ -175,18 +175,7 @@ Finálna veľkosť dynamickej FIFO: 823
 
 ---
 
-## Zhrnutie – vlastné slová
-
-**Dynamické FIFO** kompletne mení správanie simulácie:
-
-1. **Realistickejší model** – obchody nemajú pevne obmedzený rad
-2. **100% obsluha zákazníkov** – nikto neodíde nespokojný
-3. **Presné meranie zaťaženia** – vidíme skutočnú maximálnu dĺžku
-4. **Jednoduchá úprava** – stačilo zmeniť `maxlen=1000` → `maxlen=None`
-
-**Výsledok**: Pokladnica je zaťažená **reálne**, nie umelo obmedzená. **Štatistiky sú presnejšie** a **model je bližšie k praxi**.
-
-**Porovnanie so statickým FIFO:**
+## Porovnanie so statickým FIFO:
 ```
 Statické FIFO: Max. rad 1000 | Odráža zákazníkov
 Dynamické FIFO: Max. rad 1247 | Všetci obslúžení
@@ -203,6 +192,6 @@ Dynamické FIFO: Max. rad 1247 | Všetci obslúžení
 ✅ **`maxlen=None`** ako hlavná zmena  
 ✅ **Finálna veľkosť radu** v tabuľke  
 
-README je **plne prispôsobené dynamickému FIFO** a hotové na použitie! 🚀
-
-Sources
+README je **plne prispôsobené dynamickému FIFO** a hotové na použitie!
+```
+## Zhrnutie – vlastné slová

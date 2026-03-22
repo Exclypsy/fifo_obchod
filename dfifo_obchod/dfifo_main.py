@@ -344,7 +344,7 @@ def main():
     priemer_ludi = sum(r['celkovy_pocet'] for r in vysledky) / len(vysledky)
     priemer_cakanie = sum(r['max_cakanie'] for r in vysledky) / len(vysledky)
     priemer_rad = sum(r['max_dlzka_radu'] for r in vysledky) / len(vysledky)
-    priemer_neinnost = sum(r['celkova_neinnost'] for r in vysledky) / len(vysledky)
+    priemer_neinnost = sum(r['celkova_necinnost'] for r in vysledky) / len(vysledky)
     priemer_fin_rad = sum(r['finálna_velkost_radu'] for r in vysledky) / len(vysledky)
 
     print("-" * 110)
